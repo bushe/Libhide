@@ -88,10 +88,8 @@ NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 @end
 
 @interface SBSearchController : NSObject
-@property(retain, nonatomic) SBSearchView *searchView;
-@end
-@interface SBSearchController (Firmware2x3x)
 + (id)sharedInstance;
+@property(retain, nonatomic) SBSearchView *searchView;
 @end
 
 @interface SBSearchModel : NSObject // Firmware4x
@@ -159,7 +157,7 @@ static bool					global_switcherShowing = NO;
 	if(global_switcherShowing == NO)
 	{
 		Class SBSearchController = objc_getClass("SBSearchController");
-		SBSearchController* searchController = [SBSearchController sharedInstance];
+		id searchController = [SBSearchController sharedInstance];
 		if(searchController != nil)
 		{
 			SBSearchView* SearchView = [searchController searchView];
@@ -229,7 +227,7 @@ static bool					global_switcherShowing = NO;
 		{
 			// FIXME: This code is never called (?). What is its purpose?
 			Class SBSearchModel = objc_getClass("SBSearchModel");
-			SBSearchModel* searchModel = [SBSearchModel sharedInstance];
+			id searchModel = [SBSearchModel sharedInstance];
 			if(searchModel != nil)
 			{
 				isShowingSearch = [searchModel hasQueryString];
@@ -358,8 +356,8 @@ static bool					global_switcherShowing = NO;
 
 %group GSwitcherHooks5x
 - (void)dismissSwitcherAnimated:(BOOL)animated {
-	%log;
 	%orig;
+	global_switcherShowing = NO;
 }
 %end
 %end
