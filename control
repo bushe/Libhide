@@ -1,12 +1,12 @@
 Package: libhide
 Name: libhide
-Version: 2.0.7
+Version: 2.2
 Architecture: iphoneos-arm
 Description: Library to hide icons. If you are a developer wanting to use this library, code samples included in /usr/lib.
 Maintainer: BigBoss <bigboss@thebigboss.org>
 Author: BigBoss <bigboss@thebigboss.org>
 Section: Development
-Depends: mobilesubstrate
+Depends: mobilesubstrate, com.chpwn.iconsupport
 dev: bigboss
 Sponsor: thebigboss.org <http://thebigboss.org>
 Tag: role::developer, purpose::library

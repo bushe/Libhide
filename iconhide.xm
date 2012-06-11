@@ -9,21 +9,20 @@
 //  created and copyrighted by Jay Freeman a.k.a saurik and 
 //  are protected by various means of open source licensing.
 //
-//
 
-#include <substrate.h>
-#include <time.h>
 #include <notify.h>
+#include <time.h>
 
-//*******************************************************************************************************
-// #defines
-//*******************************************************************************************************
-#define IH_VERSION "2.0.6-1"
+/********************************************************************************************************
+// defines
+********************************************************************************************************/
+#define IH_VERSION "2.2"
 #define HIDLIBPATH "/var/mobile/Library/LibHide/hidden.plist"
 
 #define SYS_VER_2(_x) (_x >= 2.0 && _x < 3.0) ? YES : NO
 #define SYS_VER_3(_x) (_x >= 3.0 && _x < 4.0) ? YES : NO
 #define SYS_VER_4(_x) (_x >= 4.0 && _x < 5.0) ? YES : NO
+#define SYS_VER_5(_x) (_x >= 5.0) ? YES : NO
 
 #define _release(object) \
 do if (object != nil) { \
@@ -39,9 +38,14 @@ __asm__("mov %0, lr": "=r"(bt)); \
 NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 }
 
-//*******************************************************************************************************
+/*******************************************************************************************************
 // Declarations (for private classes/methods)
-//*******************************************************************************************************
+********************************************************************************************************/
+@interface ISIconSupport : NSObject
++ (ISIconSupport *)sharedInstance;
+- (void)addExtension:(NSString *)name;
+@end
+
 @interface SBIcon : UIView
 - (void)setShowsImages:(BOOL)images;
 @end
@@ -100,9 +104,9 @@ NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 - (void)relaunchSpringBoard;
 @end
 
-//*******************************************************************************************************
+/********************************************************************************************************
 // Globals
-//*******************************************************************************************************
+********************************************************************************************************/
 static NSMutableArray*	global_HiddenIconIds = nil;
 static NSMutableArray*	global_HiddenSpotlightIconIds = nil;
 static bool				global_Rehide = YES;
@@ -114,14 +118,14 @@ static bool					global_switcherShowing = NO;
 #pragma mark -
 #pragma mark hidden icon hooks
 
-//*******************************************************************************************************
+/********************************************************************************************************
 //                                      SBIconModel hooks
-//*******************************************************************************************************
+********************************************************************************************************/
 %hook SBIconModel
 
-//*******************************************************************************************************
+/********************************************************************************************************
 // 2.x renamed function
-//*******************************************************************************************************
+********************************************************************************************************/
 %group GSBIconModel_Firmware2x
 
 - (BOOL)iconIsVisible:(id)iconId
@@ -141,9 +145,9 @@ static bool					global_switcherShowing = NO;
 
 %end // GSBIconModel_Firmware2x
 
-//*******************************************************************************************************
+/********************************************************************************************************
 // 3.x renamed function
-//*******************************************************************************************************
+********************************************************************************************************/
 %group GSBIconModel_Firmware3x
 
 - (BOOL)isIconVisible:(id)iconId
@@ -194,9 +198,9 @@ static bool					global_switcherShowing = NO;
 
 %end // GSBIconModel_Firmware3x
 
-//*******************************************************************************************************
+/********************************************************************************************************
 // 4.x renamed function
-//*******************************************************************************************************
+********************************************************************************************************/
 %group GSBIconModel_Firmware4x
 
 - (BOOL)isIconVisible:(id)iconId
@@ -280,13 +284,13 @@ static bool					global_switcherShowing = NO;
 
 %end // SBIconModel
 
-//*******************************************************************************************************
+/********************************************************************************************************
 //                                   SBSearchController hooks
-//*******************************************************************************************************
+********************************************************************************************************/
 %hook SBSearchController
 
-//*******************************************************************************************************
-//*******************************************************************************************************
+/********************************************************************************************************
+********************************************************************************************************/
 - (id)init
 {
 	id newSearchController = %orig;
@@ -298,79 +302,78 @@ static bool					global_switcherShowing = NO;
 
 %end // SBSearchController
 
-%group GHiddenIcons
-
-//*******************************************************************************************************
+/********************************************************************************************************
 //                                     SBUIController hooks
-//*******************************************************************************************************
-%hook SBUIController
+********************************************************************************************************/
 
-//*******************************************************************************************************
-//*******************************************************************************************************
+
+%hook SBPlatformController
+%group GHiddenIcons3x
+- (void)setInfo:(NSMutableArray *)arrayOfApps forCapability:(NSString *)Capability {
+	if (Capability != nil && [Capability isEqualToString:@"application-display-identifiers"]) {
+		NSMutableArray *mutableArray = [NSMutableArray arrayWithArray:arrayOfApps];
+		[mutableArray addObjectsFromArray:global_HiddenIconIds];
+		
+		%orig(mutableArray, Capability);
+		return;
+	}
+	
+	%orig;
+}
+%end
+
+%group GHiddenIcons4x
+- (void)setValue:(NSMutableArray *)arrayOfApps forCapability:(NSString *)Capability {
+	if (Capability != nil && [Capability isEqualToString:@"application-display-identifiers"]) {
+		NSMutableArray *mutableArray = [NSMutableArray arrayWithArray:arrayOfApps];
+		[mutableArray addObjectsFromArray:global_HiddenIconIds];
+		
+		%orig(mutableArray, Capability);
+		return;
+	}
+	
+	%orig;
+}
+%end
+%end
+
+/********************************************************************************************************
+********************************************************************************************************/
+%hook SBUIController
+%group GSwitcherHooks4x5x
 - (void)_toggleSwitcher
 {
 	global_switcherShowing = YES;
 	%orig;
 }
+%end
 
-//*******************************************************************************************************
-//*******************************************************************************************************
+%group GSwitcherHooks4x
 - (void)_dismissSwitcher:(double)switcher
 {
 	%orig;
 	global_switcherShowing = NO;
 }
+%end
 
-%end // SBUIController
-
-
-#pragma mark -
-#pragma mark always-used hooks
-
-//*******************************************************************************************************
-//                                  SBPlatformController hooks
-//*******************************************************************************************************
-%hook SBPlatformController
-
-//*******************************************************************************************************
-// setInfo - Called for capabilities of app
-//*******************************************************************************************************
-- (void)setInfo:(NSMutableArray *)arrayOfApps forCapability:(NSString *)Capability
-{
-	if(Capability != nil && [Capability isEqualToString:@"application-display-identifiers"])
-	{
-		//This assumes arrayOfApps is mutable and not just an NSArray. 
-		if(![arrayOfApps respondsToSelector:@selector(addObjectsFromArray:)])
-		{
-			[arrayOfApps addObjectsFromArray:global_HiddenIconIds];
-		}
-		
-		// In case the array is not mutable.
-		else
-		{
-			NSMutableArray* mutableArray = [NSMutableArray arrayWithArray:arrayOfApps];
-			[mutableArray addObjectsFromArray:global_HiddenIconIds];
-			arrayOfApps = mutableArray;
-		}
-	}
-	
+%group GSwitcherHooks5x
+- (void)dismissSwitcherAnimated:(BOOL)animated {
+	%log;
 	%orig;
 }
-
-%end // SBPlatformController
-
-%end // GHiddenIcons
+%end
+%end
 
 #pragma mark -
 #pragma mark non-hooks
 
-//*******************************************************************************************************
+/********************************************************************************************************
 //                                        Non-hooks
-//*******************************************************************************************************
+********************************************************************************************************/
 
-//*******************************************************************************************************
+/********************************************************************************************************
 // LoadHiddenIconList
-//*******************************************************************************************************
+********************************************************************************************************/
 int LoadHiddenIconList()
 {
 	int HiddenIcons = 0;
@@ -405,8 +408,8 @@ int LoadHiddenIconList()
 	return HiddenIcons;
 }
 
-//*******************************************************************************************************
-//*******************************************************************************************************
+/********************************************************************************************************
+********************************************************************************************************/
 void* MSHookIvar(id self, const char *unitName) 
 {
     Ivar ivar =  class_getInstanceVariable(object_getClass(self), unitName);
@@ -414,9 +417,9 @@ void* MSHookIvar(id self, const char *unitName)
     return pointer;
 }
 
-//*******************************************************************************************************
+/********************************************************************************************************
 // IconHide_HiddenIconsChanged - Runs when the nofify_post(com.libhide.hiddeniconschanged) is called.
-//*******************************************************************************************************
+********************************************************************************************************/
 static void IconHide_HiddenIconsChanged(CFNotificationCenterRef center,
 											  void *observer,
 											  CFStringRef name,
@@ -471,8 +474,8 @@ static void IconHide_HiddenIconsChanged(CFNotificationCenterRef center,
 
 }
 
-//*******************************************************************************************************
-//*******************************************************************************************************
+/********************************************************************************************************
+********************************************************************************************************/
 float getSystemVersion()
 {
 	float Version = 4.0;
@@ -493,56 +496,58 @@ float getSystemVersion()
 #pragma mark -
 #pragma mark dylib initializer
 
-//*******************************************************************************************************
+/********************************************************************************************************
 // dylib initializer or entry point.
-//*******************************************************************************************************
-__attribute__((constructor)) static void init()
-{	
-   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];	
+********************************************************************************************************/
+%ctor {
+	dlopen("/Library/MobileSubstrate/DynamicLibraries/IconSupport.dylib", RTLD_NOW);
+	[[objc_getClass("ISIconSupport") sharedInstance] addExtension:@"libhide"];
 	
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];	
 	NSLog(@"LibHide: v" IH_VERSION " initializer");
 	
 	global_SystemVersion = getSystemVersion();
 	
-	//Check open application and create hooks here:
-	NSString* identifier = [[NSBundle mainBundle] bundleIdentifier];
-	if([identifier isEqualToString:@"com.apple.springboard"])
+	if(LoadHiddenIconList() != 0)
 	{
-		if(LoadHiddenIconList() != 0)
-		{
-			%init(GHiddenIcons);
-
+		if (SYS_VER_2(global_SystemVersion) || SYS_VER_3(global_SystemVersion)) {
+			%init(GHiddenIcons3x);
+			
 			if(SYS_VER_2(global_SystemVersion))
-			{
 				%init(GSBIconModel_Firmware2x);
-			}
+			
 			else if(SYS_VER_3(global_SystemVersion))
-			{
 				%init(GSBIconModel_Firmware3x);
-			}
-			else
-			{
-				%init(GSBIconModel_Firmware4x);
-			}
 		}
-
-		// Initialize remaining (non-grouped) hooks
-		%init;
 		
-		// Set the rehide flag for setVisibilityOfIcons* function.
-		global_Rehide = YES;
+		else {
+			%init(GSBIconModel_Firmware4x);
+			%init(GHiddenIcons4x);
+			
+			%init(GSwitcherHooks4x5x);
+			if (SYS_VER_4(global_SystemVersion))
+				%init(GSwitcherHooks4x);
+			else
+				%init(GSwitcherHooks5x);
+		}
 	}
+
+	// Initialize remaining (non-grouped) hooks
+	%init;
+	
+	// Set the rehide flag for setVisibilityOfIcons* function.
+	global_Rehide = YES;
 
 	CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(),
 										 NULL, 
 										 &IconHide_HiddenIconsChanged, 
-										 (CFStringRef) @"com.libhide.hiddeniconschanged", 
+										 CFSTR("com.libhide.hiddeniconschanged"), 
 										 NULL, 
 										 CFNotificationSuspensionBehaviorDeliverImmediately);	
 	
 	NSLog(@"LibHide: initializer completed and you're not in safe mode!");
 
-	[pool release];
+	[pool drain];
 }
 
 /* vim: set filetype=objcpp sw=4 ts=4 sts=4 noexpandtab textwidth=80 ff=unix: */

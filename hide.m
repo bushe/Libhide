@@ -1,7 +1,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <Foundation/Foundation.h>
 #import <stdio.h>
-#import "main.h"
+#import "hide.h"
 #import <sys/utsname.h>      /* for uname structure          */
 #include <sys/stat.h>
 #include <unistd.h>
@@ -356,7 +356,7 @@ NSString* GetPathFromAppFolderName(NSString* FolderName)
 		// Check AppStore apps for it
 		if(Path == nil)
 		{
-			NSArray* AppDirs = [[NSArray alloc] initWithArray:[FileManager directoryContentsAtPath:@"/var/mobile/Applications"]];
+			NSArray* AppDirs = [[NSArray alloc] initWithArray:[FileManager contentsOfDirectoryAtPath:@"/var/mobile/Applications" error:NULL]];
 			int		 i		 = 0;
 			
 			for(i = 0; i < [AppDirs count]; i++)
@@ -412,7 +412,7 @@ NSString* GetPathFromBundleId(NSString* BundleId)
 		int				j				= 0;
 		
 		// First scan /Applications
-		AppDirs = [[NSArray alloc] initWithArray:[FileManager directoryContentsAtPath:@"/Applications"]];
+		AppDirs = [[NSArray alloc] initWithArray:[FileManager contentsOfDirectoryAtPath:@"/Applications" error:NULL]];
 		for(i = 0; i < [AppDirs count]; i++)
 		{
 			AppDirTitle = [NSString stringWithString:[AppDirs objectAtIndex:i]];
@@ -452,16 +452,16 @@ NSString* GetPathFromBundleId(NSString* BundleId)
 			NSString*	FullAppPath = nil;
 			BOOL		AppExists	= NO;
 			
-			AppDirs = [[NSArray alloc] initWithArray:[FileManager directoryContentsAtPath:@"/var/mobile/Applications"]];
+			AppDirs = [[NSArray alloc] initWithArray:[FileManager contentsOfDirectoryAtPath:@"/var/mobile/Applications" error:NULL]];
 			for(i = 0; i < [AppDirs count]; i++)
 			{
 				PrefixDir = [NSString stringWithFormat:@"/var/mobile/Applications/%@", [AppDirs objectAtIndex: i]];
 				NSLog(@"PrefixDir = %@\n", PrefixDir);
-				AppStoreApps = [[NSArray alloc] initWithArray:[FileManager directoryContentsAtPath: PrefixDir]];
+				AppStoreApps = [[NSArray alloc] initWithArray:[FileManager contentsOfDirectoryAtPath:PrefixDir error:NULL]];
 				AppExists = NO;
 				for(j = 0; j < [AppStoreApps count]; j++)
 				{
-					AppDirTitle = [NSString stringWithFormat: [AppStoreApps objectAtIndex: j]];
+					AppDirTitle = [AppStoreApps objectAtIndex: j];
 					NSLog(@"AppDirTitle = %@\n", AppDirTitle);
 					
 					// Filter garbage

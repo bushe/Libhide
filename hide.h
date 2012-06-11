@@ -1,4 +1,3 @@
-
 #define Cache_ "/var/mobile/Library/Caches/com.apple.mobile.installation.plist"
 #define HIDLIBPATH "/var/mobile/Library/LibHide/hidden.plist"
 
