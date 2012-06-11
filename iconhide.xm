@@ -41,11 +41,6 @@ NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 /*******************************************************************************************************
 // Declarations (for private classes/methods)
 ********************************************************************************************************/
-@interface ISIconSupport : NSObject
-+ (ISIconSupport *)sharedInstance;
-- (void)addExtension:(NSString *)name;
-@end
-
 @interface SBIcon : UIView
 - (void)setShowsImages:(BOOL)images;
 @end
@@ -498,9 +493,6 @@ float getSystemVersion()
 // dylib initializer or entry point.
 ********************************************************************************************************/
 %ctor {
-	dlopen("/Library/MobileSubstrate/DynamicLibraries/IconSupport.dylib", RTLD_NOW);
-	[[objc_getClass("ISIconSupport") sharedInstance] addExtension:@"libhide"];
-	
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];	
 	NSLog(@"LibHide: v" IH_VERSION " initializer");
 	
