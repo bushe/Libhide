@@ -129,7 +129,7 @@ BOOL UnHideSpecialIcon(NSString* Path, BOOL UpdateMaster)
 	}
 	
 	NSString* InfoPlist = [[NSString alloc] initWithString:@"/Applications/MobileSlideShow.app/Info.plist"];
-	NSString* InfoPlistOut = [[NSString alloc] initWithFormat:@"/Applications/MobileSlideShow.app/Info.plist_Info.Out", Path];
+	NSString* InfoPlistOut = [[NSString alloc] initWithFormat:@"/Applications/MobileSlideShow.app/Info.plist_Info.Out"]; //, Path];
 	
 	if(IsPlistFileBinaryNS(InfoPlist) == YES)
 	{
@@ -174,7 +174,7 @@ BOOL UnHideSpecialIcon(NSString* Path, BOOL UpdateMaster)
 			Out = fopen([InfoPlistOut UTF8String], "w");
 			if(Out != NULL)
 			{
-				NSLog(@"Opened %@ for writing, PrevLine = %d\n", InfoPlistOut, PrevLine);
+				NSLog(@"Opened %@ for writing, PrevLine = %ld\n", InfoPlistOut, PrevLine);
 				for(i = 0; i < PrevLine + 2; i++)
 				{
 					if(fgets(Temp, 511, fp) == NULL) break;
@@ -746,7 +746,7 @@ BOOL HideIconInPlist(NSString* Path)
 			Out = fopen([InfoPlistOut UTF8String], "w");
 			if(Out != NULL)
 			{
-				NSLog(@"Opened %@ for writing, PrevLine = %d\n", InfoPlistOut, PrevLine);
+				NSLog(@"Opened %@ for writing, PrevLine = %ld\n", InfoPlistOut, PrevLine);
 				for(i = 0; i < PrevLine - 1; i++)
 				{
 					if(fgets(Temp, 511, fp) == NULL) break;
