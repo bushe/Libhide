@@ -1,3 +1,6 @@
+TARGET := iphone:7.0:2.0
+ARCHS := armv6 arm64
+
 TWEAK_NAME = libhide
 LIBRARY_NAME = hide
 

@@ -16,7 +16,7 @@
 /********************************************************************************************************
 // defines
 ********************************************************************************************************/
-#define IH_VERSION "2.2"
+#define IH_VERSION "2.4"
 #define HIDLIBPATH "/var/mobile/Library/LibHide/hidden.plist"
 
 #define SYS_VER_2(_x) (_x >= 2.0 && _x < 3.0) ? YES : NO
@@ -62,6 +62,7 @@ NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 @interface SBIconController : NSObject 
 + (id)sharedInstance;
 - (id)model;
+- (void)relayout;
 @end
 
 @interface SBIconList : UIView 
@@ -115,6 +116,7 @@ NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 
 @interface UIApplication (SpringBoard)
 - (void)relaunchSpringBoard;
+- (void)_relaunchSpringBoardNow;
 @end
 
 /********************************************************************************************************
@@ -386,7 +388,7 @@ static bool					global_switcherShowing = NO;
 
 %end // SBSearchController
 
-%hook SBSearchViewController
+%hook SBSearchViewController // 
 - (id)init
 {
 	id newSearchController = %orig;
@@ -530,11 +532,25 @@ static void IconHide_HiddenIconsChanged(CFNotificationCenterRef center,
 			[theApp relaunchSpringBoard];
 		}
 	}
+
+	else if([[[UIDevice currentDevice] systemVersion] hasPrefix:@"3."] || [[[UIDevice currentDevice] systemVersion] hasPrefix:@"4."]) 
+	{
+		LoadHiddenIconList();
+		SBIconModel* iconModel = (SBIconModel*)[objc_getClass("SBIconModel") sharedInstance];
+		NSSet** _visibleIconTags = (NSSet**)MSHookIvar(iconModel, "_visibleIconTags");
+		NSSet** _hiddenIconTags  = (NSSet**)MSHookIvar(iconModel, "_hiddenIconTags");
+		if(*_visibleIconTags != NULL && *_hiddenIconTags != NULL)
+		{
+			global_Rehide = YES;
+			NSArray* visibleIconTags = [*_visibleIconTags allObjects];
+			NSArray* hiddenIconTags = [*_hiddenIconTags allObjects];
+			[iconModel setVisibilityOfIconsWithVisibleTags:visibleIconTags  hiddenTags:hiddenIconTags];
+		}
+	}
 	
 	else if([[[UIDevice currentDevice] systemVersion] hasPrefix:@"5."])
 	{
 		LoadHiddenIconList();
-		
 		SBIconModel* iconModel = (SBIconModel*)[objc_getClass("SBIconModel") sharedInstance];
 		NSSet** _visibleIconTags = (NSSet**)MSHookIvar(iconModel, "_visibleIconTags");
 		NSSet** _hiddenIconTags  = (NSSet**)MSHookIvar(iconModel, "_hiddenIconTags");
@@ -547,11 +563,11 @@ static void IconHide_HiddenIconsChanged(CFNotificationCenterRef center,
 			[iconModel setVisibilityOfIconsWithVisibleTags:visibleIconTags  hiddenTags:hiddenIconTags];
 			[iconModel relayout];
 		}
-	}	
-	else if([[[UIDevice currentDevice] systemVersion] hasPrefix:@"7."])
+	}
+		
+	else if([[[UIDevice currentDevice] systemVersion] hasPrefix:@"6."] || [[[UIDevice currentDevice] systemVersion] hasPrefix:@"7."])
 	{
 		LoadHiddenIconList();
-		
 		SBIconController* iconController =  (SBIconController*)[objc_getClass("SBIconController") sharedInstance];
 		SBIconModel* iconModel = (SBIconModel*)[iconController model];
 		NSSet** _visibleIconTags = (NSSet**)MSHookIvar(iconModel, "_visibleIconTags");
@@ -562,22 +578,43 @@ static void IconHide_HiddenIconsChanged(CFNotificationCenterRef center,
 			NSSet* visibleIconTags = [NSSet setWithSet:*_visibleIconTags];
 			NSSet* hiddenIconTags = [NSSet setWithSet:*_hiddenIconTags];
 			[iconModel setVisibilityOfIconsWithVisibleTags:visibleIconTags  hiddenTags:hiddenIconTags];
+			UIApplication* theApp = [UIApplication sharedApplication];
+			if([theApp respondsToSelector:@selector(_relaunchSpringBoardNow)])
+			{
+				[theApp _relaunchSpringBoardNow];
+			}
 		}
 	}
 
-	else 
-	{
+	else {//Beyond iOS 7, attempts to stop crash 
 		LoadHiddenIconList();
-		
-		SBIconModel* iconModel = (SBIconModel*)[objc_getClass("SBIconModel") sharedInstance];
+		SBIconModel* iconModel;
+		if([objc_getClass("SBIconModel") respondsToSelector:@selector(sharedInstance)])
+		{
+			iconModel = (SBIconModel*)[objc_getClass("SBIconModel") sharedInstance];
+		}
+		else
+		{
+			if([objc_getClass("SBIconController") respondsToSelector:@selector(sharedInstance)] && [objc_getClass("SBIconController") respondsToSelector:@selector(model)]){
+				SBIconController* iconController =  (SBIconController*)[objc_getClass("SBIconController") sharedInstance];
+				iconModel = (SBIconModel*)[iconController model];
+			}
+			else
+				return;
+		}
 		NSSet** _visibleIconTags = (NSSet**)MSHookIvar(iconModel, "_visibleIconTags");
 		NSSet** _hiddenIconTags  = (NSSet**)MSHookIvar(iconModel, "_hiddenIconTags");
 		if(*_visibleIconTags != NULL && *_hiddenIconTags != NULL)
 		{
 			global_Rehide = YES;
-			NSArray* visibleIconTags = [*_visibleIconTags allObjects];
-			NSArray* hiddenIconTags = [*_hiddenIconTags allObjects];
+			NSSet* visibleIconTags = [NSSet setWithSet:*_visibleIconTags];
+			NSSet* hiddenIconTags = [NSSet setWithSet:*_hiddenIconTags];
 			[iconModel setVisibilityOfIconsWithVisibleTags:visibleIconTags  hiddenTags:hiddenIconTags];
+			UIApplication* theApp = [UIApplication sharedApplication];
+			if([theApp respondsToSelector:@selector(_relaunchSpringBoardNow)])
+			{
+				[theApp _relaunchSpringBoardNow];
+			}
 		}
 	}
 
@@ -609,8 +646,10 @@ float getSystemVersion()
 // dylib initializer or entry point.
 //********************************************************************************************************//
 %ctor {
-	dlopen("/Library/MobileSubstrate/DynamicLibraries/IconSupport.dylib", RTLD_NOW);
-	[[objc_getClass("ISIconSupport") sharedInstance] addExtension:@"libhide"];
+	if([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/Library/MobileSubstrate/DynamicLibraries/IconSupport.dylib"]]){
+		dlopen("/Library/MobileSubstrate/DynamicLibraries/IconSupport.dylib", RTLD_NOW);
+		[[objc_getClass("ISIconSupport") sharedInstance] addExtension:@"libhide"];
+	}
 	
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];	
 	NSLog(@"LibHide: v" IH_VERSION " initializer");
