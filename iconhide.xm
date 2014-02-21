@@ -16,7 +16,7 @@
 /********************************************************************************************************
 // defines
 ********************************************************************************************************/
-#define IH_VERSION "2.4"
+#define IH_VERSION "2.4.1"
 #define HIDLIBPATH "/var/mobile/Library/LibHide/hidden.plist"
 
 #define SYS_VER_2(_x) (_x >= 2.0 && _x < 3.0) ? YES : NO
@@ -76,6 +76,8 @@ NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 @interface SBIconModel : NSObject
 - (void)setVisibilityOfIconsWithVisibleTags:(id)visibleTags hiddenTags:(id)tags;
 - (void)relayout;
+//iOS 6/7
+- (void)layout;
 @end
 @interface SBIconModel (Firmware2x3x)
 @property(readonly, retain) NSMutableArray *iconLists;
@@ -102,6 +104,7 @@ NSLog(@"[%@ %s] bt=%x", [[self class] description], sel_getName(sel), bt); \
 @interface SBSearchViewController : NSObject
 + (id)sharedInstance;
 - (BOOL)isVisible;
+- (BOOL)_showingKeyboard;
 @end
 
 
@@ -320,7 +323,8 @@ static bool					global_switcherShowing = NO;
 			//SBSearchView* SearchView = [global_SearchController searchView];
 			//if(SearchView != nil)
 			//{
-				isShowingSearch = [global_SearchViewController isVisible];
+			if([global_SearchViewController respondsToSelector:@selector(_showingKeyboard)])
+				isShowingSearch = [global_SearchViewController _showingKeyboard];
 			//}
 		}
 
@@ -578,11 +582,7 @@ static void IconHide_HiddenIconsChanged(CFNotificationCenterRef center,
 			NSSet* visibleIconTags = [NSSet setWithSet:*_visibleIconTags];
 			NSSet* hiddenIconTags = [NSSet setWithSet:*_hiddenIconTags];
 			[iconModel setVisibilityOfIconsWithVisibleTags:visibleIconTags  hiddenTags:hiddenIconTags];
-			UIApplication* theApp = [UIApplication sharedApplication];
-			if([theApp respondsToSelector:@selector(_relaunchSpringBoardNow)])
-			{
-				[theApp _relaunchSpringBoardNow];
-			}
+			[iconModel layout];
 		}
 	}
 
@@ -610,11 +610,7 @@ static void IconHide_HiddenIconsChanged(CFNotificationCenterRef center,
 			NSSet* visibleIconTags = [NSSet setWithSet:*_visibleIconTags];
 			NSSet* hiddenIconTags = [NSSet setWithSet:*_hiddenIconTags];
 			[iconModel setVisibilityOfIconsWithVisibleTags:visibleIconTags  hiddenTags:hiddenIconTags];
-			UIApplication* theApp = [UIApplication sharedApplication];
-			if([theApp respondsToSelector:@selector(_relaunchSpringBoardNow)])
-			{
-				[theApp _relaunchSpringBoardNow];
-			}
+			[iconModel layout];
 		}
 	}
 
@@ -669,16 +665,18 @@ float getSystemVersion()
 		}
 		
 		else {
-			%init(GSBIconModel_Firmware4x);
-			%init(GHiddenIcons4x);
+			if (SYS_VER_4(global_SystemVersion) || SYS_VER_5(global_SystemVersion))
+				%init(GSBIconModel_Firmware4x);
+			else
+				%init(GSBIconModel_Firmware7x)
 			
+			%init(GHiddenIcons4x);
 			%init(GSwitcherHooks4x5x);
+			
 			if (SYS_VER_4(global_SystemVersion))
 				%init(GSwitcherHooks4x);
 			else if(SYS_VER_5(global_SystemVersion))
 				%init(GSwitcherHooks5x);
-			else
-				%init(GSBIconModel_Firmware7x)
 		}
 	}
 

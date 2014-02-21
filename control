@@ -1,6 +1,6 @@
 Package: libhide
 Name: libhide
-Version: 2.4~rc
+Version: 2.4.1
 Architecture: iphoneos-arm
 Description: Library to hide icons. If you are a developer wanting to use this library, code samples included in /usr/lib.
 Maintainer: BigBoss <bigboss@thebigboss.org>
